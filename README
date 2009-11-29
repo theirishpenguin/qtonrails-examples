@@ -12,7 +12,7 @@ What can I do?
     ./script/generate qmodel Product ../../../app/models/product.rb
 
 References
-* A big thanks to Richard Dale for this blog post which formed the basis of this work
+* A big thanks to Richard Dale for this blog post which formed the basis of this work at http://www.kdedevelopers.org/node/2670
 
 TODO
 * Incorporate the improvements in this blog post http://www.kdedevelopers.org/node/2677
