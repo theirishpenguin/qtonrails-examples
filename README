@@ -1,0 +1,20 @@
+Examples to go with the qtonrails framework.
+
+What is qtonrails?
+It's currently a very early attempt at building a simple framework that would let an developer comfortable with Rails generate a runnable Qt4 project. Currently, this project is very very early days - it's a basic prototype. To put it bluntly - it's rougher than a lizard's tongue at the moment. We are still researching how we might approach the problem of using Qt4 on top of a Rails project. The actual qtonrails code is located in the qt directory under vendor/plugins.
+
+What can I do?
+* The project is basically a very simple Rails project with 1 model called Product - this has title and description attributes along with created_at and updated_at timestamps
+* The qtonrails aspect exists under the vendor/plugins directory called 'qt'
+* From the qtonrails-examples/vendor/plugins/qt directory you can
+  - Do a ./script/run to launch the Qt4 app
+  - Do the following to generate the a Project QTableModel (creates 2 files)
+    ./script/generate qmodel Product ../../../app/models/product.rb
+
+References
+* A big thanks to Richard Dale for this blog post which formed the basis of this work
+
+TODO
+* Incorporate the improvements in this blog post http://www.kdedevelopers.org/node/2677
+* Get feedback on how much of this approach is reasonable and how it can be done in a better way
+* Work on what generators might make sense and learn what the anatomy of a qtonrails project might be

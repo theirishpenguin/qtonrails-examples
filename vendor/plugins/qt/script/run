@@ -1,0 +1,7 @@
+#!/usr/bin/env ruby
+require File.dirname(__FILE__) + '/../config/boot'
+
+app = Qt::Application.new(ARGV)
+Router.choose
+app.exec
+
