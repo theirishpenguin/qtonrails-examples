@@ -3,57 +3,116 @@ require File.dirname(__FILE__) + '/../config/boot'
 require 'pathname'
 require 'fileutils'
 
-if ARGV.length < 3 or ARGV.first != 'qmodel'
-    puts 'Usage: ./script/generate qmodel rails_model_name path/to/rails_model'
-    exit 1
+qmodel_usage = 'Usage: ./script/generate qmodel rails_model_name path/to/rails_model'
+qmainwindow_usage = 'Usage: ./script/generate mainwindow'
+proxies_usage = 'Usage: ./script/generate proxies'
+
+if ARGV.empty?
+    puts "No arguments supplied. Here is usage examples:
+
+#{qmodel_usage}
+
+#{qmainwindow_usage}
+
+#{proxies_usage}
+
+"
+    exit 1 
 end
 
-rails_model_name = ARGV[1]
-rails_model_filepath = ARGV[2]
+if ARGV[0] == 'qmodel'
 
-rails_model_pathname = Pathname.new(rails_model_filepath)
-unless rails_model_pathname.exist?
-    puts "'#{rails_model_filepath}'is not a valid filepath"
-    exit 1
+    if ARGV.length < 3
+        puts qmodel_usage 
+        exit 1
+    end
+
+    rails_model_name = ARGV[1]
+    rails_model_filepath = ARGV[2]
+
+    generate_qmodel(rails_model, rails_model_filepath)
+
+elsif ARGV[0] == 'mainwindow'
+
+    if ARGV.length > 1
+        puts qmainwindow_usage 
+        exit 1
+    end
+
+    target_dir = "#{QtRails::QTRAILS_ROOT}/app/ui_templates"
+    FileUtils.mkdir_p(target_dir)
+    target_filepath = "#{target_dir}/main.ui"
+
+    if File.exist? target_filepath
+        puts "Cannot generate mainwindow: '#{target_filepath}' already exists."
+        exit 1
+    end
+
+    FileUtils.cp("#{QtRails::QTRAILS_ROOT}/framework/templates/ui/main.ui", target_filepath)
+    puts "Created #{target_filepath}"
+
+elsif ARGV[0] == 'proxies'
+
+    if ARGV.length > 1
+        puts proxies_usage 
+        exit 1
+    end
+
+    ui_templates = Dir["#{QtRails::QTRAILS_ROOT}/app/ui_templates/*.ui"]
+    ui_templates.each do |ui_t|
+        command = %^rbuic4 "#{ui_t}" -x -o "#{ui_t.gsub('ui_templates', 'ui_proxies')}.rb"^
+        puts command
+        system command
+    end
+
 end
 
-require rails_model_filepath
-
-template = <<TEMPLATE
-class ProductTableModel < Qt::AbstractTableModel
-
-    @@column_titles = [
-__FIELDS__
-    ]
-
-end
+def generate_qmodel(rails_model, rails_model_filepath)
+    
+    rails_model_pathname = Pathname.new(rails_model_filepath)
+    unless rails_model_pathname.exist?
+        puts "'#{rails_model_filepath}'is not a valid filepath"
+        exit 1
+    end
+    
+    require rails_model_filepath
+    
+    template = <<TEMPLATE
+    class ProductTableModel < Qt::AbstractTableModel
+    
+        @@column_titles = [
+    __FIELDS__
+        ]
+    
+    end
 TEMPLATE
-
-qmodel_filename = rails_model_pathname.basename.to_s.split('.rb').first + '_table_model.rb'
-qmodel_gen_filename = rails_model_pathname.basename.to_s.split('.rb').first + '_table_model_gen.rb'
-qmodel_filepath = "#{QtRails::QTRAILS_ROOT}/app/qmodels/#{qmodel_filename}"
-qmodel_gen_filepath = "#{QtRails::QTRAILS_ROOT}/app/qmodels/#{qmodel_gen_filename}"
-
-if File.exist? qmodel_filepath
-    puts "Cannot create '#{qmodel_filepath}' as it already exists."
-    exit 1
+    
+    qmodel_filename = rails_model_pathname.basename.to_s.split('.rb').first + '_table_model.rb'
+    qmodel_gen_filename = rails_model_pathname.basename.to_s.split('.rb').first + '_table_model_gen.rb'
+    qmodel_filepath = "#{QtRails::QTRAILS_ROOT}/app/qmodels/#{qmodel_filename}"
+    qmodel_gen_filepath = "#{QtRails::QTRAILS_ROOT}/app/qmodels/#{qmodel_gen_filename}"
+    
+    if File.exist? qmodel_filepath
+        puts "Cannot create '#{qmodel_filepath}' as it already exists."
+        exit 1
+    end
+    
+    if File.exist? qmodel_gen_filepath
+        puts "Cannot create '#{qmodel_gen_filepath}' as it already exists."
+        exit 1
+    end
+    
+    a_sample_object = eval(rails_model_name).new
+    
+    fields = a_sample_object.attributes.keys.map do |key|
+        "       NVPair.new('#{key.to_s}', '#{key.to_s.capitalize.gsub('_', ' ')}')"
+    end
+    
+    File.open(qmodel_filepath, 'w') do |f|
+        f.write template.gsub('__FIELDS__', fields.join(",\n"))
+    end
+    
+    FileUtils.cp(
+        "#{QtRails::QTRAILS_ROOT}/framework/templates/qtable_model_gen.rb.template",
+        qmodel_gen_filepath)
 end
-
-if File.exist? qmodel_gen_filepath
-    puts "Cannot create '#{qmodel_gen_filepath}' as it already exists."
-    exit 1
-end
-
-a_sample_object = eval(rails_model_name).new
-
-fields = a_sample_object.attributes.keys.map do |key|
-    "       NVPair.new('#{key.to_s}', '#{key.to_s.capitalize.gsub('_', ' ')}')"
-end
-
-File.open(qmodel_filepath, 'w') do |f|
-    f.write template.gsub('__FIELDS__', fields.join(",\n"))
-end
-
-FileUtils.cp(
-    "#{QtRails::QTRAILS_ROOT}/framework/templates/qtable_model_gen.rb.template",
-    qmodel_gen_filepath)
