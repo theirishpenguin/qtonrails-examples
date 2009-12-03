@@ -58,6 +58,7 @@ elsif ARGV[0] == 'proxies'
         exit 1
     end
 
+    FileUtils.mkdir_p "#{QtRails::QTRAILS_ROOT}/app/ui_proxies/"
     ui_templates = Dir["#{QtRails::QTRAILS_ROOT}/app/ui_templates/*.ui"]
     ui_templates.each do |ui_t|
         command = %^rbuic4 "#{ui_t}" -x -o "#{ui_t.gsub('ui_templates', 'ui_proxies')}.rb"^
