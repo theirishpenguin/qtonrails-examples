@@ -1,5 +1,5 @@
 class Router
-  DEFAULT_ROUTE = {:controller => 'products', :action => 'index'}
+  DEFAULT_ROUTE = {:controller => 'products', :action => 'example'}
 
   def self.choose(route = {})
     route = DEFAULT_ROUTE.clone if route.blank?

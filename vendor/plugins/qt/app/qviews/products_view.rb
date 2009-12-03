@@ -7,4 +7,13 @@ class ProductsView
     table.show
   end
 
+  def example(records)
+    require 'app/ui_presenters/main.rb'
+
+    a = Qt::Application.new(ARGV)
+    main = Main.new(nil, records)
+    main.show
+    a.exec
+  end
+           
 end
