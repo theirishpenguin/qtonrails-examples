@@ -32,20 +32,9 @@ class Main < Qt::MainWindow
  
        @ui.setup_ui(self)
  
-       # As promised...
-
+       # Populate table model
        model = ProductTableModel.new(records)
        @ui.tableView.model = model
-
-       #table = Qt::TableView.new(@ui.tableView)
-       #table.model = model
-       #@ui.tableView = table
-
-       #Qt::ListWidgetItem.new(@ui.listWidget)
- 
-       #And also...
- 
-       #@ui.listWidget.item(1).text = Qt::Application.translate("Dialog", "Second Line", nil, Qt::Application::UnicodeUTF8)
  
     end
  
