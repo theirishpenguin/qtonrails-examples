@@ -4,13 +4,164 @@ require 'pathname'
 require 'fileutils'
 
 qmodel_usage = 'Usage: ./script/generate qmodel rails_model_name path/to/rails_model'
+qform_usage = 'Usage: ./script/generate qform rails_model_name path/to/rails_model'
 qmainwindow_usage = 'Usage: ./script/generate mainwindow'
 proxies_usage = 'Usage: ./script/generate proxies'
+
+#FIXME: method name is not intent revealing (ie. totally confusing!!!)
+def warn_if_invalid_filepath(filepath)
+
+    rails_model_pathname = Pathname.new(filepath)
+    unless rails_model_pathname.exist?
+        puts "'#{filepath}'is not a valid filepath"
+        exit 1
+    end
+
+    rails_model_pathname 
+end
+
+def warn_cannot_create_if_filepath_exists(filepath)
+
+    if File.exist? filepath
+        puts "Cannot create '#{filepath}' as it already exists."
+        exit 1
+    end
+
+end
+
+
+def edit_widgets_as_ui_xml_from_model(a_model)
+
+    inner_xml = ''
+
+#        <widget class=\"__CLASS__\" name=\"__NAME__\"/>"
+    label_widget_xml_template =<<TEMPLATE
+         <item>
+          <widget class="QLabel" name="__NAME___label" >
+           <property name="geometry" >
+            <rect>
+             <x>10</x>
+             <y>321</y>
+             <width>51</width>
+             <height>16</height>
+            </rect>
+           </property>
+           <property name="text" >
+            <string>__CAP_NAME__</string>
+           </property>
+           <property name="__NAME__" >
+            <cstring>__NAME___line_edit</cstring>
+           </property>
+          </widget>
+         </item>
+TEMPLATE
+
+    line_edit_widget_xml_template =<<TEMPLATE
+         <item>
+          <widget class="QLineEdit" name="__NAME___line_edit" >
+           <property name="geometry" >
+            <rect>
+             <x>70</x>
+             <y>170</y>
+             <width>113</width>
+             <height>20</height>
+            </rect>
+           </property>
+           <property name="maxLength" >
+            <number>100</number>
+           </property>
+         </widget>
+         </item>
+TEMPLATE
+
+    a_model.attributes.keys.each do |attr_name|
+        label_widget_xml = label_widget_xml_template.gsub(
+            '__CAP_NAME__', attr_name.capitalize.gsub('_', ' '))
+
+        label_widget_xml.gsub!('__NAME__', attr_name)
+
+        inner_xml << label_widget_xml
+
+        line_edit_widget_xml = line_edit_widget_xml_template.gsub('__NAME__', attr_name)
+
+        inner_xml << line_edit_widget_xml
+    end
+
+    inner_xml
+end
+
+
+def generate_qmodel(rails_model_name, rails_model_filepath)
+    
+    rails_model_pathname = warn_if_invalid_filepath(rails_model_filepath)
+    
+    require rails_model_filepath
+    
+    template = <<TEMPLATE
+    class ProductTableModel < Qt::AbstractTableModel
+    
+        @@column_titles = [
+    __FIELDS__
+        ]
+    
+    end
+TEMPLATE
+    
+    qmodel_filename = rails_model_pathname.basename.to_s.split('.rb').first + '_table_model.rb'
+    qmodel_gen_filename = rails_model_pathname.basename.to_s.split('.rb').first + '_table_model_gen.rb'
+    qmodel_filepath = "#{QtRails::QTRAILS_ROOT}/app/qmodels/#{qmodel_filename}"
+    qmodel_gen_filepath = "#{QtRails::QTRAILS_ROOT}/app/qmodels/#{qmodel_gen_filename}"
+    
+    warn_cannot_create_if_filepath_exists(qmodel_filepath)
+    warn_cannot_create_if_filepath_exists(qmodel_gen_filepath)
+
+    a_sample_object = eval(rails_model_name).new
+    
+    fields = a_sample_object.attributes.keys.map do |key|
+        "       NVPair.new('#{key.to_s}', '#{key.to_s.capitalize.gsub('_', ' ')}')"
+    end
+    
+    File.open(qmodel_filepath, 'w') do |f|
+        f.write template.gsub('__FIELDS__', fields.join(",\n"))
+    end
+    
+    FileUtils.cp(
+        "#{QtRails::QTRAILS_ROOT}/framework/templates/qtable_model_gen.rb.template",
+        qmodel_gen_filepath)
+end
+
+def generate_qform(rails_model_name, rails_model_filepath)
+
+    rails_model_pathname = warn_if_invalid_filepath(rails_model_filepath)
+    
+    require rails_model_filepath
+
+    qform_filename = rails_model_pathname.basename.to_s.split('.rb').first + '_qform.ui'
+    qform_filepath = "#{QtRails::QTRAILS_ROOT}/app/qforms/#{qform_filename}"
+    qform_template_filepath = "#{QtRails::QTRAILS_ROOT}/framework/templates/ui/qform_template.ui"
+
+    a_sample_model = eval(rails_model_name).new
+
+    qform_template = File.read(qform_template_filepath)
+
+    # FIXME: Verify existing like in mainWindow generator
+    target_dir = "#{QtRails::QTRAILS_ROOT}/app/qforms"
+    FileUtils.mkdir_p(target_dir)
+
+    File.open(qform_filepath, 'w') do |f|
+
+        form_fields_as_ui_xml = edit_widgets_as_ui_xml_from_model(a_sample_model)
+        f.write qform_template.gsub('__FORM_FIELDS__', form_fields_as_ui_xml)
+    end
+    
+end
 
 if ARGV.empty?
     puts "No arguments supplied. Here is usage examples:
 
 #{qmodel_usage}
+
+#{qform_usage}
 
 #{qmainwindow_usage}
 
@@ -30,7 +181,7 @@ if ARGV[0] == 'qmodel'
     rails_model_name = ARGV[1]
     rails_model_filepath = ARGV[2]
 
-    generate_qmodel(rails_model, rails_model_filepath)
+    generate_qmodel(rails_model_name, rails_model_filepath)
 
 elsif ARGV[0] == 'mainwindow'
 
@@ -51,6 +202,23 @@ elsif ARGV[0] == 'mainwindow'
     FileUtils.cp("#{QtRails::QTRAILS_ROOT}/framework/templates/ui/main.ui", target_filepath)
     puts "Created #{target_filepath}"
 
+#elsif ARGV[0] == 'qwidgets' # TODO
+    # Must read model attributes
+    # For each model attribute
+    #   Generate Qt widget field depending on the attributes type
+    #   (Note: Later the person may hand edit the qwidget generated file
+elsif ARGV[0] == 'qform'
+    
+    if ARGV.length < 3
+        puts qmodel_usage 
+        exit 1
+    end
+    
+    rails_model_name = ARGV[1]
+    rails_model_filepath = ARGV[2]
+
+    generate_qform(rails_model_name, rails_model_filepath)
+
 elsif ARGV[0] == 'proxies'
 
     if ARGV.length > 1
@@ -66,54 +234,4 @@ elsif ARGV[0] == 'proxies'
         system command
     end
 
-end
-
-def generate_qmodel(rails_model, rails_model_filepath)
-    
-    rails_model_pathname = Pathname.new(rails_model_filepath)
-    unless rails_model_pathname.exist?
-        puts "'#{rails_model_filepath}'is not a valid filepath"
-        exit 1
-    end
-    
-    require rails_model_filepath
-    
-    template = <<TEMPLATE
-    class ProductTableModel < Qt::AbstractTableModel
-    
-        @@column_titles = [
-    __FIELDS__
-        ]
-    
-    end
-TEMPLATE
-    
-    qmodel_filename = rails_model_pathname.basename.to_s.split('.rb').first + '_table_model.rb'
-    qmodel_gen_filename = rails_model_pathname.basename.to_s.split('.rb').first + '_table_model_gen.rb'
-    qmodel_filepath = "#{QtRails::QTRAILS_ROOT}/app/qmodels/#{qmodel_filename}"
-    qmodel_gen_filepath = "#{QtRails::QTRAILS_ROOT}/app/qmodels/#{qmodel_gen_filename}"
-    
-    if File.exist? qmodel_filepath
-        puts "Cannot create '#{qmodel_filepath}' as it already exists."
-        exit 1
-    end
-    
-    if File.exist? qmodel_gen_filepath
-        puts "Cannot create '#{qmodel_gen_filepath}' as it already exists."
-        exit 1
-    end
-    
-    a_sample_object = eval(rails_model_name).new
-    
-    fields = a_sample_object.attributes.keys.map do |key|
-        "       NVPair.new('#{key.to_s}', '#{key.to_s.capitalize.gsub('_', ' ')}')"
-    end
-    
-    File.open(qmodel_filepath, 'w') do |f|
-        f.write template.gsub('__FIELDS__', fields.join(",\n"))
-    end
-    
-    FileUtils.cp(
-        "#{QtRails::QTRAILS_ROOT}/framework/templates/qtable_model_gen.rb.template",
-        qmodel_gen_filepath)
 end
