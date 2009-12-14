@@ -4,7 +4,7 @@ require 'pathname'
 require 'fileutils'
 
 qmodel_usage = 'Usage: ./script/generate qmodel rails_model_name path/to/rails_model'
-qform_usage = 'Usage: ./script/generate qform rails_model_name path/to/rails_model'
+qform_usage = 'Usage: ./script/generate qform_1col rails_model_name path/to/rails_model'
 qmainwindow_usage = 'Usage: ./script/generate mainwindow'
 proxies_usage = 'Usage: ./script/generate proxies'
 
@@ -29,62 +29,44 @@ def warn_cannot_create_if_filepath_exists(filepath)
 
 end
 
-
-def edit_widgets_as_ui_xml_from_model(a_model)
+def edit_1col_widgets_as_ui_xml_from_model(a_model)
 
     inner_xml = ''
 
-#        <widget class=\"__CLASS__\" name=\"__NAME__\"/>"
-    label_widget_xml_template =<<TEMPLATE
-         <item>
-          <widget class="QLabel" name="__NAME___label" >
-           <property name="geometry" >
-            <rect>
-             <x>10</x>
-             <y>321</y>
-             <width>51</width>
-             <height>16</height>
-            </rect>
-           </property>
-           <property name="text" >
-            <string>__CAP_NAME__</string>
-           </property>
-           <property name="__NAME__" >
-            <cstring>__NAME___line_edit</cstring>
-           </property>
-          </widget>
-         </item>
-TEMPLATE
-
-    line_edit_widget_xml_template =<<TEMPLATE
-         <item>
-          <widget class="QLineEdit" name="__NAME___line_edit" >
-           <property name="geometry" >
-            <rect>
-             <x>70</x>
-             <y>170</y>
-             <width>113</width>
-             <height>20</height>
-            </rect>
-           </property>
-           <property name="maxLength" >
-            <number>100</number>
-           </property>
+    row_widget_xml_template =<<TEMPLATE
+        <item row="__ROW_NUM__" column="0">
+         <widget class="QLabel" name="__NAME___label">
+          <property name="text">
+           <string>__CAP_NAME__</string>
+          </property>
          </widget>
-         </item>
+        </item>
+        <item row="__ROW_NUM__" column="1">
+         <widget class="QLineEdit" name="__NAME___line_edit"/>
+        </item>
 TEMPLATE
 
-    a_model.attributes.keys.each do |attr_name|
-        label_widget_xml = label_widget_xml_template.gsub(
-            '__CAP_NAME__', attr_name.capitalize.gsub('_', ' '))
+    # Ensure that timestamps appear at the end if they exist
+    model_keys = a_model.attributes.keys.clone
+    
+    timestamps = model_keys.reject do |k|
+        ['created_at', 'updated_at'].include? k
+    end
 
-        label_widget_xml.gsub!('__NAME__', attr_name)
+    model_keys = model_keys - timestamps
+    model_keys = timestamps + model_keys
+    
 
-        inner_xml << label_widget_xml
+    model_keys.each.with_index do |attr_name, row_num|
 
-        line_edit_widget_xml = line_edit_widget_xml_template.gsub('__NAME__', attr_name)
+        row_widget_xml = row_widget_xml_template.clone
+        capped_attr_name = attr_name.capitalize.gsub('_', ' ')
 
-        inner_xml << line_edit_widget_xml
+        row_widget_xml.gsub!('__CAP_NAME__', capped_attr_name)
+        row_widget_xml.gsub!('__NAME__', attr_name)
+        row_widget_xml.gsub!('__ROW_NUM__', row_num.to_s)
+
+        inner_xml << row_widget_xml
     end
 
     inner_xml
@@ -130,7 +112,7 @@ TEMPLATE
         qmodel_gen_filepath)
 end
 
-def generate_qform(rails_model_name, rails_model_filepath)
+def generate_qform_1col(rails_model_name, rails_model_filepath)
 
     rails_model_pathname = warn_if_invalid_filepath(rails_model_filepath)
     
@@ -138,7 +120,7 @@ def generate_qform(rails_model_name, rails_model_filepath)
 
     qform_filename = rails_model_pathname.basename.to_s.split('.rb').first + '_qform.ui'
     qform_filepath = "#{QtRails::QTRAILS_ROOT}/app/qforms/#{qform_filename}"
-    qform_template_filepath = "#{QtRails::QTRAILS_ROOT}/framework/templates/ui/qform_template.ui"
+    qform_template_filepath = "#{QtRails::QTRAILS_ROOT}/framework/templates/ui/qform_1col_template.ui"
 
     a_sample_model = eval(rails_model_name).new
 
@@ -150,7 +132,7 @@ def generate_qform(rails_model_name, rails_model_filepath)
 
     File.open(qform_filepath, 'w') do |f|
 
-        form_fields_as_ui_xml = edit_widgets_as_ui_xml_from_model(a_sample_model)
+        form_fields_as_ui_xml = edit_1col_widgets_as_ui_xml_from_model(a_sample_model)
         f.write qform_template.gsub('__FORM_FIELDS__', form_fields_as_ui_xml)
     end
     
@@ -202,12 +184,7 @@ elsif ARGV[0] == 'mainwindow'
     FileUtils.cp("#{QtRails::QTRAILS_ROOT}/framework/templates/ui/main.ui", target_filepath)
     puts "Created #{target_filepath}"
 
-#elsif ARGV[0] == 'qwidgets' # TODO
-    # Must read model attributes
-    # For each model attribute
-    #   Generate Qt widget field depending on the attributes type
-    #   (Note: Later the person may hand edit the qwidget generated file
-elsif ARGV[0] == 'qform'
+elsif ARGV[0] == 'qform_1col'
     
     if ARGV.length < 3
         puts qmodel_usage 
@@ -217,7 +194,7 @@ elsif ARGV[0] == 'qform'
     rails_model_name = ARGV[1]
     rails_model_filepath = ARGV[2]
 
-    generate_qform(rails_model_name, rails_model_filepath)
+    generate_qform_1col(rails_model_name, rails_model_filepath)
 
 elsif ARGV[0] == 'proxies'
 
